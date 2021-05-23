@@ -1,0 +1,73 @@
+#!/bin/bash
+#Configuring jdk installation directory Modified place 1 script can be created by yourself
+currentTime=$(date '+%Y-%m-%d %H:%M:%S')
+ Echo -e "Please enter the jdk installation directory, there is no script automatically created, the last one / do not write /bigdata/install"
+read jdkinstallpath
+
+ Echo -e "Please enter the version of jdk for example 8"
+read jdkversion
+
+ #Create ES installation directory
+if [ ! -d $jdkinstallpath ]; then
+   mkdir -p $jdkinstallpath
+fi 
+if [ ! -d $jdkinstallpath ]; then
+     Echo "Create directory $jdkinstallpat failed! Please check if the directory has permissions"
+  exit
+fi
+
+     # tar 
+currentdir=$(cd $(dirname $0); pwd)
+ls | grep "jdk-$jdkversion.*[gz]$"
+if [ $? -ne 0 ]; then
+       #current directory does not have es compression package
+       Echo "The jdk compression package is not found under $currentdir, please upload it yourself!"
+   exit
+else
+   # 
+   tar -zxvf $currentdir/$(ls | grep "jdk-$jdkversion.*[gz]$") -C $jdkinstallpath
+fi
+
+jdkbanben=`ls $jdkinstallpath| grep "jdk*$jdkversion*"`
+
+ #PATH setting
+ # row insertion
+echo "">>~/.bash_profile
+echo '#java $currentTime'>>~/.bash_profile
+echo "export JAVA_HOME=$jdkinstallpath/$jdkbanben">>~/.bash_profile
+echo 'export PATH=$PATH:$JAVA_HOME/bin'>>~/.bash_profile
+source ~/.bash_profile
+
+java -version
+if [ $? -eq 0 ]; then
+     Echo 'JDK configuration completed'
+else
+     Echo 'Installation failed, please try again or manually install'
+fi
+
+
+ # hadoop installation file
+ Echo "The following input nodes must be secret-free login"
+ Echo "Please enter all the nodes, separated by spaces, the current machine does not need to input (current machine is cdh01) For example cdh02 cdh03 cdh04 cdh05" 
+read allnodes
+user=`whoami`
+array=(`echo $allnodes | tr ' ' ' '` )
+for allnode in ${array[@]}
+do
+ echo ======= $allnode  =======
+ ssh $allnode "echo ''>>~/.bash_profile"
+ ssh $allnode "echo '#jdk $currentTime'>>~/.bash_profile"
+ ssh $allnode "echo 'export JAVA_HOME=$jdkinstallpath/$jdkbanben'>>~/.bash_profile"
+ ssh $allnode 'echo "export PATH=\$PATH:\$JAVA_HOME/bin">>~/.bash_profile'
+ ssh $allnode "source ~/.bash_profile"
+ ssh $allnode "rm -rf $jdkinstallpath/$jdkbanben"
+ ssh $allnode "mkdir -p $jdkinstallpath/$jdkbanben"
+ scp -r $jdkinstallpath/$jdkbanben/* ${user}@$allnode:$jdkinstallpath/$jdkbanben
+   Echo ======= $allnode Copy completed =======
+done
+
+for allnode in ${array[@]}
+do
+   Echo ======= Manually execute source ~/.bash_profile on $allnode Check if it is installed successfully via java -version =======
+done
+
